@@ -1,7 +1,7 @@
 # azrust
-
 Simple and even *faster* file finder than [**turtureanu/az**](https://github.com/turtureanu/az) made in [Rust](https://www.rust-lang.org/).
 
+[![Rust](https://github.com/Honzecki/azrust/actions/workflows/rust.yml/badge.svg)](https://github.com/Honzecki/azrust/actions/workflows/rust.yml)
 ## Usage
 
 ```man
