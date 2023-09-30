@@ -41,21 +41,27 @@ fn matches_requirements(entry: &DirEntry, pattern: &Regex) -> bool {
 
 fn main() {
     let args = Args::parse();
+    // Parse the cli arguments
     let re = Regex::new(&args.pattern).unwrap();
+    // Set "re" as the Regex pattern
     for entry_result in WalkDir::new(&args.path)
         .into_iter()
         .filter_entry(|e| !is_hidden(e) || args.hidden) // Include hidden entries if args.hidden is true
     {
+
         let entry = match entry_result{
+
             Ok(entry) => entry,
             Err(_) => {
                 println!("Error reading.");
                 continue;
+                // For each file in a directory/directories check whether an entry is valid and unwrap the result
             },
-        }; // Unwrap the Result
+        };
 
         if matches_requirements(&entry, &re){
             println!("{}", entry.path().display());
+            // Check whether entry matches the Regex
         }
     }
 }
