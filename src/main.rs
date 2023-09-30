@@ -46,6 +46,16 @@ fn matches_requirements(entry: &DirEntry, pattern: &Regex) -> bool {
         .unwrap_or(false)
 }
 
+fn print_detailed(entry: &DirEntry) {
+    if let Ok(metadata) = fs::metadata(entry.path()) {
+        println!("Name: {}", entry.file_name().to_str().unwrap());
+        println!("Size: {} bytes", metadata.len());
+        println!("Modified: {:?}", format_system_time(metadata.modified().unwrap()));
+        println!("Accessed: {:?}", format_system_time(metadata.accessed().unwrap()));
+        println!("Created: {:?}", format_system_time(metadata.created().unwrap()));
+    }
+}
+
 fn format_system_time(time: SystemTime) -> String {
     let datetime: DateTime<Utc> = time.into();
     datetime.to_rfc2822()
@@ -57,7 +67,7 @@ fn main() {
 
     // Parse the cli arguments
     let pattern = match args.pattern {
-        Some(arg) => {
+        Some(ref arg) => {
             match RegexBuilder::new(&arg).build() {
                 Ok(re) => re,
                 Err(_) => {
@@ -96,21 +106,24 @@ fn main() {
             }
         };
 
-        if matches_requirements(&entry, &pattern) { // Check whether entry matches the Regex
-            if !args.json { // Might hinder the performance a tiny bit, but I don't care
+        // Check if the pattern has been provided
+        if args.pattern.is_some() {
+            if matches_requirements(&entry, &pattern) { // Check whether entry matches the Regex
                 println!("{}", entry.path().display()); // Show the entries full path
-                if args.detail { // If we want to show details, then show the details ^^
-                    if let Ok(metadata) = fs::metadata(entry.path()) {
-                        println!("Name: {}", entry.file_name().to_str().unwrap());
-                        println!("Size: {} bytes", metadata.len());
-                        println!("Modified: {:?}", format_system_time(metadata.modified().unwrap()));
-                        println!("Accessed: {:?}", format_system_time(metadata.accessed().unwrap()));
-                        println!("Created: {:?}", format_system_time(metadata.created().unwrap()));
+                if !args.json { // Might hinder the performance a tiny bit, but I don't care
+                    if args.detail { // If we want to show details, then show the details ^^
+                        print_detailed(&entry);
                     }
+                } else {
+                    json_paths.push(entry.path().to_string_lossy().to_string());
+                    // Push the path of every single result to the json thingy
                 }
+            }
+        } else {
+            if args.detail {
+                print_detailed(&entry);
             } else {
-                json_paths.push(entry.path().to_string_lossy().to_string());
-                // Push the path of every single result to the json thingy
+                println!("{}", entry.path().display());
             }
         }
     }
