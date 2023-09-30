@@ -32,11 +32,7 @@ fn is_hidden(entry: &DirEntry) -> bool {
         .unwrap_or(false)
 }
 
-fn matches_requirements(entry: &DirEntry, pattern: &Regex, hidden_flag: bool) -> bool {
-    // Check if the entry is hidden and whether there is a hidden flag
-    if is_hidden(entry) && hidden_flag {
-        return false;
-    }
+fn matches_requirements(entry: &DirEntry, pattern: &Regex) -> bool {
     entry.file_name()
          .to_str()
          .map(|s| pattern.is_match(s))
@@ -58,7 +54,7 @@ fn main() {
             },
         }; // Unwrap the Result
 
-        if matches_requirements(&entry, &re, args.hidden){
+        if matches_requirements(&entry, &re){
             println!("{}", entry.path().display());
         }
     }
