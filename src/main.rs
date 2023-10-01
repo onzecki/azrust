@@ -96,14 +96,14 @@ fn main() {
         if args.pattern.is_some() {
             // Check whether entry matches the Regex
             if pattern.is_match(entry.file_name().to_str().unwrap()) {
-                println!("{}", entry.path().display()); // Print full path
-
-                if args.json {
-                    json_paths.push(entry.path().to_string_lossy().to_string());
-                } else {
+                if !args.json {
                     if args.detail {
                         print_detailed(&entry);
+                    } else {
+                        println!("{}", entry.path().display()); // Print full path
                     }
+                } else {
+                    json_paths.push(entry.path().to_string_lossy().to_string());
                 }
             }
         } else {
@@ -118,10 +118,10 @@ fn main() {
                 }
             }
         }
+    }
 
-        if args.json {
-            // Print results in JSON format
-            println!("{}", serde_json::to_string(&json_paths).expect("Failed to serialize to JSON"))
-        }
+    if args.json {
+        // Print results in JSON format
+        println!("{}", serde_json::to_string(&json_paths).unwrap());
     }
 }
