@@ -1,11 +1,16 @@
+use chrono::{DateTime, Utc};
+use clap::{crate_description, crate_name, crate_version, CommandFactory, Parser};
 use regex::RegexBuilder;
-use clap::{CommandFactory, Parser};
 use std::fs;
 use std::time::SystemTime;
-use chrono::{DateTime, Utc};
 use walkdir::{DirEntry, WalkDir};
 
-#[derive(Parser, Debug)]
+#[derive(Parser)]
+#[clap(
+name = crate_name!(),
+version = crate_version!(),
+about = crate_description!()
+)]
 struct Args {
     /// Pattern to search for
     pattern: Option<String>,
@@ -28,7 +33,8 @@ struct Args {
 
 // Check if the &DirEntry is hidden
 fn is_hidden(entry: &DirEntry) -> bool {
-    entry.file_name()
+    entry
+        .file_name()
         .to_str()
         .map(|s| s.starts_with("."))
         .unwrap_or(false)
@@ -37,11 +43,23 @@ fn is_hidden(entry: &DirEntry) -> bool {
 // Print details about a given &DirEntry
 fn print_detailed(entry: &DirEntry) {
     if let Ok(metadata) = fs::metadata(entry.path()) {
-        println!("Name: {}", entry.file_name().to_str().expect("Failed to get file name"));
+        println!(
+            "Name: {}",
+            entry.file_name().to_str().expect("Failed to get file name")
+        );
         println!("Size: {} bytes", metadata.len());
-        println!("Modified: {:?}", format_system_time(metadata.modified().expect("Failed to get modified time")));
-        println!("Accessed: {:?}", format_system_time(metadata.accessed().expect("Failed to get accessed time")));
-        println!("Created: {:?}", format_system_time(metadata.created().expect("Failed to get created time")));
+        println!(
+            "Modified: {:?}",
+            format_system_time(metadata.modified().expect("Failed to get modified time"))
+        );
+        println!(
+            "Accessed: {:?}",
+            format_system_time(metadata.accessed().expect("Failed to get accessed time"))
+        );
+        println!(
+            "Created: {:?}",
+            format_system_time(metadata.created().expect("Failed to get created time"))
+        );
     }
 }
 
@@ -73,16 +91,18 @@ fn main() {
     // If path is not provided, set it to the working directory
     let path = match args.path {
         Some(arg) => arg,
-        None =>
-            std::env::current_dir()
-                .expect("Failed to get working directory").to_string_lossy().to_string(),
+        None => std::env::current_dir()
+            .expect("Failed to get working directory")
+            .to_string_lossy()
+            .to_string(),
     };
 
     let mut json_paths = Vec::new();
 
     for entry_result in WalkDir::new(path)
         .into_iter()
-        .filter_entry(|e| !is_hidden(e) || args.hidden) // Include hidden entries if args.hidden is true
+        .filter_entry(|e| !is_hidden(e) || args.hidden)
+    // Include hidden entries if args.hidden is true
     {
         let entry = match entry_result {
             Ok(entry) => entry,
