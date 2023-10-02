@@ -114,7 +114,7 @@ fn main() {
                 return;
             }
 
-            arg
+            fs::canonicalize(arg).unwrap().to_string_lossy().to_string()
         }
         None => std::env::current_dir()
             .expect("Failed to get working directory")
