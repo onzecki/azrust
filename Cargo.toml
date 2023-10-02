@@ -1,7 +1,7 @@
 [package]
 name = "azrust"
-version = "0.1.0"
-description = "Simple fast file finder made in Rust."
+version = "1.0.0"
+description = "A quick and easy-to-use file finder made with Rust."
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
