@@ -1,8 +1,11 @@
 use chrono::{DateTime, Utc};
 use clap::{crate_description, crate_name, crate_version, CommandFactory, Parser};
+use humansize::{format_size, DECIMAL};
 use regex::RegexBuilder;
+use serde::Serialize;
 use std::fs;
-use std::time::SystemTime;
+use std::path::Path;
+use std::time::{SystemTime, UNIX_EPOCH};
 use walkdir::{DirEntry, WalkDir};
 
 #[derive(Parser)]
@@ -30,6 +33,15 @@ struct Args {
     #[clap(long)]
     hidden: bool,
 }
+#[derive(Serialize)]
+struct JsonDetail {
+    name: String,
+    path: String,
+    size: isize,
+    modified: u64,
+    accessed: u64,
+    created: u64,
+}
 
 // Check if the &DirEntry is hidden
 fn is_hidden(entry: &DirEntry) -> bool {
@@ -43,21 +55,22 @@ fn is_hidden(entry: &DirEntry) -> bool {
 // Print details about a given &DirEntry
 fn print_detailed(entry: &DirEntry) {
     if let Ok(metadata) = fs::metadata(entry.path()) {
+        println!("\n{}", entry.path().display());
         println!(
-            "Name: {}",
+            "\tName: {}",
             entry.file_name().to_str().expect("Failed to get file name")
         );
-        println!("Size: {} bytes", metadata.len());
+        println!("\tSize: {}", format_size(metadata.len(), DECIMAL));
         println!(
-            "Modified: {:?}",
+            "\tModified: {:?}",
             format_system_time(metadata.modified().expect("Failed to get modified time"))
         );
         println!(
-            "Accessed: {:?}",
+            "\tAccessed: {:?}",
             format_system_time(metadata.accessed().expect("Failed to get accessed time"))
         );
         println!(
-            "Created: {:?}",
+            "\tCreated: {:?}",
             format_system_time(metadata.created().expect("Failed to get created time"))
         );
     }
@@ -67,6 +80,11 @@ fn print_detailed(entry: &DirEntry) {
 fn format_system_time(time: SystemTime) -> String {
     let datetime: DateTime<Utc> = time.into();
     datetime.to_rfc2822()
+}
+
+fn print_help() {
+    let mut cmd = Args::command();
+    cmd.print_help().expect("Failed to print help");
 }
 
 fn main() {
@@ -79,8 +97,7 @@ fn main() {
                 Ok(re) => re,
                 Err(_) => {
                     println!("Invalid RegEx!\n");
-                    let mut cmd = Args::command();
-                    cmd.print_help().expect("Failed to print help");
+                    print_help();
                     return;
                 }
             }
@@ -90,7 +107,15 @@ fn main() {
 
     // If path is not provided, set it to the working directory
     let path = match args.path {
-        Some(arg) => arg,
+        Some(arg) => {
+            if !Path::exists(arg.as_ref()) {
+                println!("Invalid directory path!");
+                print_help();
+                return;
+            }
+
+            arg
+        }
         None => std::env::current_dir()
             .expect("Failed to get working directory")
             .to_string_lossy()
@@ -98,8 +123,9 @@ fn main() {
     };
 
     let mut json_paths = Vec::new();
+    let mut json_paths_detailed = Vec::new();
 
-    for entry_result in WalkDir::new(path)
+    for entry_result in WalkDir::new(path.clone())
         .into_iter()
         .filter_entry(|e| !is_hidden(e) || args.hidden)
     // Include hidden entries if args.hidden is true
@@ -116,14 +142,48 @@ fn main() {
         if args.pattern.is_some() {
             // Check whether entry matches the Regex
             if pattern.is_match(entry.file_name().to_str().unwrap()) {
-                if !args.json {
+                if args.json {
+                    if args.detail {
+                        if let Ok(metadata) = fs::metadata(entry.path()) {
+                            let json_detailed = JsonDetail {
+                                name: entry
+                                    .file_name()
+                                    .to_str()
+                                    .expect("Failed to get file name")
+                                    .to_string(),
+                                path: path.clone(),
+                                size: metadata.len() as isize,
+                                modified: metadata
+                                    .modified()
+                                    .expect("Failed to get modified time")
+                                    .duration_since(UNIX_EPOCH)
+                                    .expect("Failed to calculate duration")
+                                    .as_secs(),
+                                accessed: metadata
+                                    .accessed()
+                                    .expect("Failed to get accessed time")
+                                    .duration_since(UNIX_EPOCH)
+                                    .expect("Failed to calculate duration")
+                                    .as_secs(),
+                                created: metadata
+                                    .created()
+                                    .expect("Failed to get created time")
+                                    .duration_since(UNIX_EPOCH)
+                                    .expect("Failed to calculate duration")
+                                    .as_secs(),
+                            };
+
+                            json_paths_detailed.push(json_detailed);
+                        }
+                    } else {
+                        json_paths.push(entry.path().to_string_lossy().to_string());
+                    }
+                } else {
                     if args.detail {
                         print_detailed(&entry);
                     } else {
                         println!("{}", entry.path().display()); // Print full path
                     }
-                } else {
-                    json_paths.push(entry.path().to_string_lossy().to_string());
                 }
             }
         } else {
@@ -140,8 +200,12 @@ fn main() {
         }
     }
 
+    // Print results in JSON format
     if args.json {
-        // Print results in JSON format
-        println!("{}", serde_json::to_string(&json_paths).unwrap());
+        if args.detail {
+            println!("{}", serde_json::to_string(&json_paths_detailed).unwrap());
+        } else {
+            println!("{}", serde_json::to_string(&json_paths).unwrap());
+        }
     }
 }
