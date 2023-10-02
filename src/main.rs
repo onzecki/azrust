@@ -33,6 +33,7 @@ struct Args {
     #[clap(long)]
     hidden: bool,
 }
+
 #[derive(Serialize)]
 struct JsonDetail {
     name: String,
@@ -133,8 +134,9 @@ fn main() {
         let entry = match entry_result {
             Ok(entry) => entry,
             Err(e) => {
-                if !args.json { // Wouldn't want error messages to pop up with a json output.
-                     println!("{}", e);
+                if !args.json {
+                    // Wouldn't want error messages to pop up with a json output.
+                    println!("{}", e);
                 }
                 continue;
             }
