@@ -88,6 +88,40 @@ fn print_help() {
     cmd.print_help().expect("Failed to print help");
 }
 
+fn push_json_detailed(entry: DirEntry, json_paths_detailed: &mut Vec<JsonDetail>) {
+    if let Ok(metadata) = fs::metadata(entry.path()) {
+        let json_detailed = JsonDetail {
+            name: entry
+                .file_name()
+                .to_str()
+                .expect("Failed to get file name")
+                .to_string(),
+            path: entry.path().to_string_lossy().to_string(),
+            size: metadata.len() as isize,
+            modified: metadata
+                .modified()
+                .expect("Failed to get modified time")
+                .duration_since(UNIX_EPOCH)
+                .expect("Failed to calculate duration")
+                .as_secs(),
+            accessed: metadata
+                .accessed()
+                .expect("Failed to get accessed time")
+                .duration_since(UNIX_EPOCH)
+                .expect("Failed to calculate duration")
+                .as_secs(),
+            created: metadata
+                .created()
+                .expect("Failed to get created time")
+                .duration_since(UNIX_EPOCH)
+                .expect("Failed to calculate duration")
+                .as_secs(),
+        };
+
+        json_paths_detailed.push(json_detailed);
+    }
+}
+
 fn main() {
     let args = Args::parse();
 
@@ -123,6 +157,8 @@ fn main() {
             .to_string(),
     };
 
+    println!("{:#?}", path);
+
     let mut json_paths = Vec::new();
     let mut json_paths_detailed = Vec::new();
 
@@ -148,51 +184,25 @@ fn main() {
             if pattern.is_match(entry.file_name().to_str().unwrap()) {
                 if args.json {
                     if args.detail {
-                        if let Ok(metadata) = fs::metadata(entry.path()) {
-                            let json_detailed = JsonDetail {
-                                name: entry
-                                    .file_name()
-                                    .to_str()
-                                    .expect("Failed to get file name")
-                                    .to_string(),
-                                path: path.clone(),
-                                size: metadata.len() as isize,
-                                modified: metadata
-                                    .modified()
-                                    .expect("Failed to get modified time")
-                                    .duration_since(UNIX_EPOCH)
-                                    .expect("Failed to calculate duration")
-                                    .as_secs(),
-                                accessed: metadata
-                                    .accessed()
-                                    .expect("Failed to get accessed time")
-                                    .duration_since(UNIX_EPOCH)
-                                    .expect("Failed to calculate duration")
-                                    .as_secs(),
-                                created: metadata
-                                    .created()
-                                    .expect("Failed to get created time")
-                                    .duration_since(UNIX_EPOCH)
-                                    .expect("Failed to calculate duration")
-                                    .as_secs(),
-                            };
-
-                            json_paths_detailed.push(json_detailed);
-                        }
-                    } else {
-                        json_paths.push(entry.path().to_string_lossy().to_string());
+                        push_json_detailed(entry, &mut json_paths_detailed);
                     }
                 } else {
-                    if args.detail {
-                        print_detailed(&entry);
-                    } else {
-                        println!("{}", entry.path().display()); // Print full path
-                    }
+                    json_paths.push(entry.path().to_string_lossy().to_string());
+                }
+            } else {
+                if args.detail {
+                    print_detailed(&entry);
+                } else {
+                    println!("{}", entry.path().display()); // Print full path
                 }
             }
         } else {
             if args.json {
-                json_paths.push(entry.path().to_string_lossy().to_string());
+                if args.detail {
+                    push_json_detailed(entry, &mut json_paths_detailed);
+                } else {
+                    json_paths.push(entry.path().to_string_lossy().to_string());
+                }
             } else {
                 if args.detail {
                     print_detailed(&entry);
