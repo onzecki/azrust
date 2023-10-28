@@ -36,6 +36,7 @@ struct Args {
 
 #[derive(Serialize)]
 struct JsonDetail {
+    filetype: String,
     name: String,
     path: String,
     size: isize,
@@ -57,6 +58,7 @@ fn is_hidden(entry: &DirEntry) -> bool {
 fn print_detailed(entry: &DirEntry) {
     if let Ok(metadata) = fs::metadata(entry.path()) {
         println!("\n{}", entry.path().display());
+        println!("\tFiletype: {}", if metadata.file_type().is_file() { "file" } else { "directory" });
         println!(
             "\tName: {}",
             entry.file_name().to_str().expect("Failed to get file name")
@@ -91,6 +93,11 @@ fn print_help() {
 fn push_json_detailed(entry: DirEntry, json_paths_detailed: &mut Vec<JsonDetail>) {
     if let Ok(metadata) = fs::metadata(entry.path()) {
         let json_detailed = JsonDetail {
+            filetype: if entry
+                .file_type()
+                .is_file() {
+                "f".to_string()
+            } else { "d".to_string() },
             name: entry
                 .file_name()
                 .to_str()
