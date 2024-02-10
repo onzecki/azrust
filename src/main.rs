@@ -58,7 +58,14 @@ fn is_hidden(entry: &DirEntry) -> bool {
 fn print_detailed(entry: &DirEntry) {
     if let Ok(metadata) = fs::metadata(entry.path()) {
         println!("\n{}", entry.path().display());
-        println!("\tFiletype: {}", if metadata.file_type().is_file() { "file" } else { "directory" });
+        println!(
+            "\tFiletype: {}",
+            if metadata.file_type().is_file() {
+                "file"
+            } else {
+                "directory"
+            }
+        );
         println!(
             "\tName: {}",
             entry.file_name().to_str().expect("Failed to get file name")
@@ -93,11 +100,11 @@ fn print_help() {
 fn push_json_detailed(entry: DirEntry, json_paths_detailed: &mut Vec<JsonDetail>) {
     if let Ok(metadata) = fs::metadata(entry.path()) {
         let json_detailed = JsonDetail {
-            filetype: if entry
-                .file_type()
-                .is_file() {
+            filetype: if entry.file_type().is_file() {
                 "f".to_string()
-            } else { "d".to_string() },
+            } else {
+                "d".to_string()
+            },
             name: entry
                 .file_name()
                 .to_str()
@@ -132,31 +139,23 @@ fn push_json_detailed(entry: DirEntry, json_paths_detailed: &mut Vec<JsonDetail>
 fn main() {
     let args = Args::parse();
 
-    let pattern = match args.pattern {
-        Some(ref arg) => {
-            // Check if the provided pattern is valid RegEx
-            match RegexBuilder::new(&arg).build() {
-                Ok(re) => re,
-                Err(_) => {
-                    println!("Invalid RegEx!\n");
-                    print_help();
-                    return;
-                }
-            }
-        }
-        None => RegexBuilder::new(".*").build().unwrap(),
-    };
+    let match_all = RegexBuilder::new(".*").build().unwrap();
 
     // If path is not provided, set it to the working directory
-    let path = match args.path {
-        Some(arg) => {
+    let mut path = match args.path {
+        Some(ref arg) => {
             if !Path::exists(arg.as_ref()) {
                 println!("Invalid directory path!");
                 print_help();
                 return;
             }
 
-            fs::canonicalize(arg).unwrap().to_string_lossy().to_string()
+            let a = fs::canonicalize(arg.clone())
+                .unwrap()
+                .to_string_lossy()
+                .to_string();
+            println!("{} aa {}", a, &arg);
+            a
         }
         None => std::env::current_dir()
             .expect("Failed to get working directory")
@@ -164,12 +163,32 @@ fn main() {
             .to_string(),
     };
 
-    println!("{:#?}", path);
+    let pattern = match args.pattern {
+        // if the pattern was provided
+        Some(ref arg) => {
+            // if it was a path (and it was provided as the first argument, which is pattern)
+            if Path::exists(arg.as_ref()) {
+                path = Path::new(arg).to_string_lossy().to_string();
+                match_all
+            } else {
+                // Check if the provided pattern is valid RegEx
+                match RegexBuilder::new(&arg).build() {
+                    Ok(re) => re,
+                    Err(_) => {
+                        println!("Invalid RegEx!\n");
+                        print_help();
+                        return;
+                    }
+                }
+            }
+        }
+        None => match_all,
+    };
 
     let mut json_paths = Vec::new();
     let mut json_paths_detailed = Vec::new();
 
-    for entry_result in WalkDir::new(path.clone())
+    for entry_result in WalkDir::new(&path.to_string())
         .into_iter()
         .filter_entry(|e| !is_hidden(e) || args.hidden)
     // Include hidden entries if args.hidden is true
@@ -185,25 +204,8 @@ fn main() {
             }
         };
 
-        // Check if the pattern has been provided
-        if args.pattern.is_some() {
-            // Check whether entry matches the Regex
-            if pattern.is_match(entry.file_name().to_str().unwrap()) {
-                if args.json {
-                    if args.detail {
-                        push_json_detailed(entry, &mut json_paths_detailed);
-                    }
-                } else {
-                    json_paths.push(entry.path().to_string_lossy().to_string());
-                }
-            } else {
-                if args.detail {
-                    print_detailed(&entry);
-                } else {
-                    println!("{}", entry.path().display()); // Print full path
-                }
-            }
-        } else {
+        // Check whether entry matches the Regex
+        if pattern.is_match(entry.file_name().to_str().unwrap()) {
             if args.json {
                 if args.detail {
                     push_json_detailed(entry, &mut json_paths_detailed);
